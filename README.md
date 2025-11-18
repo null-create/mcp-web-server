@@ -26,11 +26,17 @@ This server exposes search capabilities via **FastMCP** tools, making it ideal f
 ## **📁 Project Structure**
 
 ```
-├── main.py                # MCP server and tool definitions
-├── search_backends.py     # Search backend implementations (DuckDuckGo, Wikipedia, GitHub)
-├── requirements.txt       # Python dependencies
-├── Makefile               # Dev helpers (venv setup, Docker compose, cleanup)
-└── README.md              # This file
+├── .env.example         # Example .env file
+├── .gitignore           # git helper
+├── Dockerfile           # Docker file for local deployment
+├── LICENCE              # Licence file
+├── Makefile             # Dev helpers (venv setup, Docker compose, cleanup)
+├── README.md            # This file
+├── __init__.py          # Python init file
+├── docker-compose.yml   # Docker compose file
+├── requirements.txt     # Python dependencies
+├── search_backends.py   # Search backend implementations (DuckDuckGo, Wikipedia, GitHub)
+└── server.py            # MCP server and tool definitions
 ```
 
 ---
