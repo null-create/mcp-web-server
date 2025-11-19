@@ -4,10 +4,12 @@ Uses various libraries that don't require API keys.
 """
 
 import requests
-from typing import Any, Dict, List
+from typing import Any
 
-from ddgs import DDGS
+import httpx
 import wikipedia
+from ddgs import DDGS
+from bs4 import BeautifulSoup
 
 
 class SearchBackends:
@@ -23,15 +25,28 @@ class SearchBackends:
             {
                 "User-Agent": self.user_agent,
             }
+        )  # Used for the GETs to Github. Might replace with the httx client below
+        self.httpx_client = httpx.AsyncClient(
+            timeout=5,
+            headers={
+                "User-Agent": self.user_agent,
+            },
         )
 
-    def search_duckduckgo(
+    async def _scrape_page(self, url: str) -> str:
+        try:
+            result = await self.httpx_client.get(url=url)
+            return BeautifulSoup(result.text, "html.parser").get_text()
+        except Exception as e:
+            return f"Failed to scrape page: {e}"
+
+    async def search_duckduckgo(
         self,
         query: str,
         max_results: int = 10,
         region: str = "wt-wt",
         safesearch: str = "moderate",
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Search using DuckDuckGo."""
         try:
             with DDGS() as ddgs:
@@ -44,11 +59,18 @@ class SearchBackends:
                 )
 
                 for result in search_results:
+                    page_content = ""
+                    url = result.get("href", "")
+                    if url:
+                        page_content = await self._scrape_page(url)
+
                     results.append(
                         {
                             "title": result.get("title", ""),
                             "url": result.get("href", ""),
-                            "snippet": result.get("body", ""),
+                            "content": (
+                                page_content if page_content else result.get("body", "")
+                            ),
                             "source": "DuckDuckGo",
                         }
                     )
@@ -58,40 +80,6 @@ class SearchBackends:
         except Exception as e:
             raise Exception(f"DuckDuckGo search failed: {str(e)}")
 
-    def search_news(
-        self,
-        query: str,
-        max_results: int = 10,
-        region: str = "wt-wt",
-        time_range: str = "d",
-    ) -> List[Dict[str, Any]]:
-        """Search news using DuckDuckGo."""
-        try:
-            with DDGS() as ddgs:
-                results = []
-                news_results = ddgs.news(
-                    query=query,
-                    region=region,
-                    timelimit=time_range,
-                    max_results=max_results,
-                )
-
-                for result in news_results:
-                    results.append(
-                        {
-                            "title": result.get("title", ""),
-                            "url": result.get("url", ""),
-                            "snippet": result.get("body", ""),
-                            "date": result.get("date", ""),
-                            "source": result.get("source", "DuckDuckGo News"),
-                        }
-                    )
-
-                return results[:max_results]
-
-        except Exception as e:
-            raise Exception(f"DuckDuckGo news search failed: {str(e)}")
-
     def search_images(
         self,
         query: str,
@@ -99,7 +87,7 @@ class SearchBackends:
         size: str = "Medium",
         type_image: str = "photo",
         region: str = "wt-wt",
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Search images using DuckDuckGo."""
         try:
             with DDGS() as ddgs:
@@ -136,7 +124,7 @@ class SearchBackends:
         duration: str = "Medium",
         resolution: str = "High",
         region: str = "wt-wt",
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Search videos using DuckDuckGo."""
         if not DDGS:
             raise ImportError(
@@ -171,7 +159,7 @@ class SearchBackends:
         except Exception as e:
             raise Exception(f"DuckDuckGo video search failed: {str(e)}")
 
-    def get_suggestions(self, query: str, region: str = "wt-wt") -> List[str]:
+    def get_suggestions(self, query: str, region: str = "wt-wt") -> list[str]:
         """Get search suggestions using DuckDuckGo."""
         try:
             with DDGS() as ddgs:
@@ -183,7 +171,7 @@ class SearchBackends:
 
     def search_wikipedia(
         self, query: str, max_results: int = 10
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Search Wikipedia."""
         try:
             results = []
@@ -232,7 +220,7 @@ class SearchBackends:
         except Exception as e:
             raise Exception(f"Wikipedia search failed: {str(e)}")
 
-    def search_github(self, query: str, max_results: int = 10) -> List[Dict[str, Any]]:
+    def search_github(self, query: str, max_results: int = 10) -> list[dict[str, Any]]:
         """Search GitHub repositories without authentication."""
         try:
             url = "https://api.github.com/search/repositories"
